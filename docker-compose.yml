@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: fileprocessing
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: miniouser
+      MINIO_ROOT_PASSWORD: miniopass
+    volumes:
+      - s3_data:/data
+    command: server /data --console-address ":9001"
+
+  api:
+    build: ./api_service
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://admin:password@postgres:5432/fileprocessing
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=miniouser
+      - S3_SECRET_KEY=miniopass
+      - NFS_MOUNT_PATH=/nfs_data
+    volumes:
+      - nfs_data:/nfs_data
+    depends_on:
+      - postgres
+      - rabbitmq
+      - minio
+
+  processor:
+    build: ./processor_service
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=miniouser
+      - S3_SECRET_KEY=miniopass
+      - NFS_MOUNT_PATH=/nfs_data
+    volumes:
+      - nfs_data:/nfs_data
+    depends_on:
+      - rabbitmq
+      - minio
+
+  notifier:
+    build: ./notification_service
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - DATABASE_URL=postgresql://admin:password@postgres:5432/fileprocessing
+    depends_on:
+      - rabbitmq
+      - postgres
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  s3_data:
+  nfs_data:
+    driver: local
+    
