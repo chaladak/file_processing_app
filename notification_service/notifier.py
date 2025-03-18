@@ -13,8 +13,15 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Define the same models to match other services
+# Read RabbitMQ host and port from the environment variables
+rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+
+# Database setup (use DATABASE_URL from environment variable)
+DATABASE_URL = os.getenv("DATABASE_URL")
+engine = create_engine(DATABASE_URL)
 Base = declarative_base()
+Base.metadata.create_all(engine)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class FileRecord(Base):
     __tablename__ = "file_records"
@@ -37,27 +44,44 @@ class Notification(Base):
     sent_at = Column(DateTime, nullable=False)
     details = Column(Text, nullable=True)
 
-# Database setup
-DATABASE_URL = os.environ.get("DATABASE_URL")
-engine = create_engine(DATABASE_URL)
-Base.metadata.create_all(engine)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# RabbitMQ connection and retry logic
+def wait_for_rabbitmq():
+    """Wait for RabbitMQ to be fully available before connecting."""
+    rabbitmq_api_url = "http://rabbitmq:15672/api/healthchecks/node"
+    rabbitmq_user = "guest"
+    rabbitmq_pass = "guest"
+    retry_count = 0
+    max_retries = 30
 
-# RabbitMQ setup
+    while retry_count < max_retries:
+        try:
+            response = requests.get(rabbitmq_api_url, auth=(rabbitmq_user, rabbitmq_pass), timeout=5)
+            if response.status_code == 200 and response.json().get("status") == "ok":
+                logger.info("RabbitMQ is ready.")
+                return True
+        except requests.RequestException:
+            logger.info(f"Waiting for RabbitMQ... Attempt {retry_count + 1}/{max_retries}")
+
+        retry_count += 1
+        time.sleep(2)
+
+    raise Exception("RabbitMQ did not become ready in time.")
+
 def get_rabbitmq_connection():
+    """Ensure RabbitMQ is ready before attempting to connect."""
+    wait_for_rabbitmq()
+
     retry_count = 0
     max_retries = 30
     while retry_count < max_retries:
         try:
-            connection = pika.BlockingConnection(
-                pika.URLParameters(os.environ.get("RABBITMQ_URL"))
-            )
+            connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
             return connection
         except pika.exceptions.AMQPConnectionError:
             retry_count += 1
             logger.info(f"Connection attempt {retry_count}/{max_retries} failed. Retrying...")
             time.sleep(2)
-    
+
     raise Exception("Failed to connect to RabbitMQ after multiple attempts")
 
 def send_notification(job_id, status, result):
@@ -67,24 +91,12 @@ def send_notification(job_id, status, result):
     """
     logger.info(f"Sending notification for job {job_id} with status {status}")
     
-    # In a real application, you would send notifications via email, SMS, webhook, etc.
-    # For this example, we'll just log the notification and save it to the database
-    
     # Simulate HTTP webhook call (for demonstration purposes)
     try:
-        # This is a placeholder and would typically call a real webhook endpoint
-        # webhook_url = "https://example.com/webhook"
-        # response = requests.post(webhook_url, json={
-        #     "job_id": job_id,
-        #     "status": status,
-        #     "result": result
-        # })
-        # logger.info(f"Webhook response: {response.status_code}")
-        
-        # Instead, we'll just log the notification
+        # Placeholder for actual HTTP webhook logic
         logger.info(f"NOTIFICATION: Job {job_id} - Status: {status} - Result: {result}")
         
-        # Save notification to database
+        # Save notification to the database
         db = SessionLocal()
         notification = Notification(
             id=f"{job_id}_{datetime.now().timestamp()}",
@@ -117,24 +129,20 @@ def callback(ch, method, properties, body):
         logger.error(f"Error processing notification for job {job_id}: {str(e)}")
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
+
 def main():
     logger.info("Notification service starting...")
     
-    # Wait for RabbitMQ to be ready
-    connection = get_rabbitmq_connection()
+    connection = get_rabbitmq_connection()  # Establish the connection after ensuring RabbitMQ is ready
+    
     channel = connection.channel()
-    
-    # Declare the queue
     channel.queue_declare(queue='notifications')
-    
-    # Set prefetch count to limit the number of unacknowledged messages
     channel.basic_qos(prefetch_count=1)
-    
-    # Register the callback
     channel.basic_consume(queue='notifications', on_message_callback=callback)
     
     logger.info("Waiting for notification messages. To exit press CTRL+C")
     channel.start_consuming()
+
 
 if __name__ == "__main__":
     try:

@@ -5,9 +5,9 @@ import pika
 import boto3
 import logging
 from sqlalchemy import create_engine, Column, String, DateTime, Text
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
+from sqlalchemy.orm import declarative_base
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -170,3 +170,6 @@ def main():
     
     # Register the callback
     channel
+
+if __name__ == "__main__":
+    main()
