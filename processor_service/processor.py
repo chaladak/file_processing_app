@@ -4,6 +4,7 @@ import time
 import pika
 import boto3
 import logging
+import hashlib
 from sqlalchemy import create_engine, Column, String, DateTime, Text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime
@@ -76,24 +77,34 @@ def get_rabbitmq_connection(max_retries=3, retry_delay=5):
                 logger.error("Failed to establish RabbitMQ connection after maximum retries")
                 raise
 
+def compute_file_hash(nfs_path):
+    """Compute SHA-256 hash of the file content."""
+    hasher = hashlib.sha256()
+    with open(nfs_path, "rb") as f:
+        while chunk := f.read(8192):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
 def process_file(nfs_path, job_id):
     """
-    Process file and send result to RabbitMQ with improved error handling
+    Process file and send result to RabbitMQ with improved error handling.
     """
     try:
         if not os.path.exists(nfs_path):
             logger.error(f"File not found: {nfs_path}")
             raise FileNotFoundError(f"File {nfs_path} does not exist")
         
-        time.sleep(5)  # Simulate processing time
+        # Instead of sleeping, compute file hash
+        file_hash = compute_file_hash(nfs_path)
         
         result = {
             "size_bytes": os.path.getsize(nfs_path),
             "processed_timestamp": datetime.now().isoformat(),
+            "file_hash": file_hash,
             "success": True
         }
         
-        # Database update with robust error handling
+        # Database update
         try:
             with SessionLocal() as db:
                 file_record = db.query(FileRecord).filter(FileRecord.id == job_id).first()
@@ -107,7 +118,7 @@ def process_file(nfs_path, job_id):
             logger.error(f"Database update error for job {job_id}: {db_error}")
             raise
         
-        # RabbitMQ notification with connection management
+        # RabbitMQ notification
         try:
             connection = get_rabbitmq_connection()
             try:
