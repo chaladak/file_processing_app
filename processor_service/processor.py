@@ -48,32 +48,29 @@ NFS_PATH = os.environ.get("NFS_MOUNT_PATH")
 
 # RabbitMQ setup
 def get_rabbitmq_connection():
-    retry_count = 0
-    max_retries = 30
-    while retry_count < max_retries:
-        try:
-            connection = pika.BlockingConnection(
-                pika.URLParameters(os.environ.get("RABBITMQ_URL"))
-            )
-            return connection
-        except pika.exceptions.AMQPConnectionError:
-            retry_count += 1
-            logger.info(f"Connection attempt {retry_count}/{max_retries} failed. Retrying...")
-            time.sleep(2)
-    
-    raise Exception("Failed to connect to RabbitMQ after multiple attempts")
+    """Create and return a persistent RabbitMQ connection."""
+    global rabbitmq_connection
+    if 'rabbitmq_connection' not in globals() or rabbitmq_connection.is_closed:
+        logger.info("Establishing new RabbitMQ connection...")
+        params = pika.URLParameters(os.environ.get("RABBITMQ_URL") + "?heartbeat=600")
+        rabbitmq_connection = pika.BlockingConnection(params)
+    return rabbitmq_connection
 
 def process_file(nfs_path, job_id):
     """
-    Simulate file processing
-    In a real application, this would perform actual processing operations
+    Process file and send result to RabbitMQ
     """
     logger.info(f"Processing file at {nfs_path}")
+    
+    # Check if the file exists on NFS path
+    if not os.path.exists(nfs_path):
+        logger.error(f"File not found: {nfs_path}")
+        return  # Early exit if file doesn't exist
     
     # Simulate processing time
     time.sleep(5)
     
-    # In a real application, you would process the file here
+    # Processing result
     result = {
         "size_bytes": os.path.getsize(nfs_path),
         "processed_timestamp": datetime.now().isoformat(),
@@ -81,35 +78,41 @@ def process_file(nfs_path, job_id):
     }
     
     # Update database
-    db = SessionLocal()
-    file_record = db.query(FileRecord).filter(FileRecord.id == job_id).first()
-    if file_record:
-        file_record.status = "processed"
-        file_record.processed_at = datetime.now()
-        file_record.processing_result = json.dumps(result)
-        db.commit()
-    db.close()
+    try:
+        db = SessionLocal()
+        file_record = db.query(FileRecord).filter(FileRecord.id == job_id).first()
+        if file_record:
+            file_record.status = "processed"
+            file_record.processed_at = datetime.now()
+            file_record.processing_result = json.dumps(result)
+            db.commit()
+            logger.info(f"Database updated: File {job_id} processed")
+        db.close()
+    except Exception as e:
+        logger.error(f"Error updating database for job {job_id}: {str(e)}")
+        return  # Skip further processing if DB update fails
     
-    # Send notification message
-    connection = get_rabbitmq_connection()
-    channel = connection.channel()
-    channel.queue_declare(queue='notifications')
-    
-    notification = {
-        "job_id": job_id,
-        "status": "processed",
-        "result": result
-    }
-    
-    channel.basic_publish(
-        exchange='',
-        routing_key='notifications',
-        body=json.dumps(notification)
-    )
-    connection.close()
-    
-    logger.info(f"File {job_id} processing completed")
-    return result
+    # Reuse RabbitMQ connection
+    try:
+        connection = get_rabbitmq_connection()
+        channel = connection.channel()
+        channel.queue_declare(queue='notifications', durable=True)  # Ensure queue exists
+        
+        notification = {
+            "job_id": job_id,
+            "status": "processed",
+            "result": result
+        }
+        
+        channel.basic_publish(
+            exchange='',
+            routing_key='notifications',
+            body=json.dumps(notification)
+        )
+        connection.close()
+        logger.info(f"Notification sent for job {job_id}")
+    except Exception as e:
+        logger.error(f"Error sending notification for job {job_id}: {str(e)}")
 
 def callback(ch, method, properties, body):
     message = json.loads(body)
@@ -150,6 +153,7 @@ def callback(ch, method, properties, body):
                 body=json.dumps(notification)
             )
             error_connection.close()
+            logger.info(f"Error notification sent for job {job_id}")
         except Exception as inner_e:
             logger.error(f"Error handling failure for {job_id}: {str(inner_e)}")
         
@@ -169,7 +173,23 @@ def main():
     channel.basic_qos(prefetch_count=1)
     
     # Register the callback
-    channel
+    channel.basic_consume(
+        queue='file_processing',
+        on_message_callback=callback
+    )
+    
+    logger.info("Waiting for file processing jobs. To exit press CTRL+C")
+    
+    # Start consuming
+    try:
+        channel.start_consuming()
+    except KeyboardInterrupt:
+        logger.info("Stopping consumer...")
+        channel.stop_consuming()
+    
+    # Close the connection
+    connection.close()
+    logger.info("Consumer stopped")
 
 if __name__ == "__main__":
     main()
