@@ -4,7 +4,7 @@ pipeline {
     environment {
         // Set up environment variables
         DOCKER_REGISTRY = "achodak" // Replace with your registry
-        DOCKER_CREDS = credentials('dockerhub-creds') // Jenkins credentials ID for Docker registry
+        DOCKER_CREDS = credentials('docker-credentials-id') // Jenkins credentials ID for Docker registry
         KUBECONFIG = credentials('k8s-config-id') // Jenkins credentials ID for Kubernetes config
         PROJECT_NAME = "fileprocessing"
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
@@ -103,7 +103,7 @@ pipeline {
     post {
         always {
             // Clean workspace
-            cleanWs()
+            deleteDir()
         }
         
         success {
