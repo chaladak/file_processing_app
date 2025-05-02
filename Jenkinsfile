@@ -98,13 +98,15 @@ pipeline {
                 }
             }
         }
+        stage('Final') {
+            steps {
+                echo 'Final step'
+                sh 'rm -rf ./*'  // Clean up at the end of the last stage
+            }
+        }
     }
     
     post {
-        always {
-            sh 'rm -rf ./*'
-        }
-        
         success {
             // Notify on success
             echo "Deployment completed successfully!"
