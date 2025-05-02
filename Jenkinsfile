@@ -102,9 +102,7 @@ pipeline {
     
     post {
         always {
-            node {
-                deleteDir()
-            }
+            sh 'rm -rf ./*'
         }
         
         success {
