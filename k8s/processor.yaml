@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: processor
+  namespace: ${PROJECT_NAME}
+spec:
+  selector:
+    matchLabels:
+      app: processor
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: processor
+    spec:
+      containers:
+      - name: processor
+        image: ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor:${TAG}
+        envFrom:
+        - configMapRef:
+            name: ${PROJECT_NAME}-config
+        env:
+        - name: S3_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ${PROJECT_NAME}-secret
+              key: S3_ACCESS_KEY
+        - name: S3_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ${PROJECT_NAME}-secret
+              key: S3_SECRET_KEY
+        volumeMounts:
+        - name: nfs-storage
+          mountPath: /nfs_data
+      volumes:
+      - name: nfs-storage
+        persistentVolumeClaim:
+          claimName: nfs-pvc

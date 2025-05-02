@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: ${PROJECT_NAME}
+spec:
+  selector:
+    matchLabels:
+      app: api
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: ${DOCKER_REGISTRY}/${PROJECT_NAME}-api:${TAG}
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: ${PROJECT_NAME}-config
+        env:
+        - name: S3_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ${PROJECT_NAME}-secret
+              key: S3_ACCESS_KEY
+        - name: S3_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ${PROJECT_NAME}-secret
+              key: S3_SECRET_KEY
+        volumeMounts:
+        - name: nfs-storage
+          mountPath: /nfs_data
+      volumes:
+      - name: nfs-storage
+        persistentVolumeClaim:
+          claimName: nfs-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: ${PROJECT_NAME}
+spec:
+  selector:
+    app: api
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP

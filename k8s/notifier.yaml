@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notifier
+  namespace: ${PROJECT_NAME}
+spec:
+  selector:
+    matchLabels:
+      app: notifier
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: notifier
+    spec:
+      containers:
+      - name: notifier
+        image: ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier:${TAG}
+        envFrom:
+        - configMapRef:
+            name: ${PROJECT_NAME}-config
