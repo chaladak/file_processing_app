@@ -102,8 +102,9 @@ pipeline {
     
     post {
         always {
-            // Clean workspace
-            deleteDir()
+            node {
+                deleteDir()
+            }
         }
         
         success {
