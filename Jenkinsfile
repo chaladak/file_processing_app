@@ -1,8 +1,3 @@
-
-DEVKIT_ARGS = '--network host --ipc=host -v /root:/root -v /etc/resolv.conf:/etc/resolv.conf -v /tmp:/tmp -v /var/run/docker.sock:/var/run/docker.sock -e "EUID=0" -e "EGID=0" -e "USER_NAME=root" -e "STDOUT=true" -e "JENKINS_RUN=true"'
-DEVKIT_IMAGE = "asdrepo.isus.emc.com:9042/csi-baremetal-devkit:latest"
-
-// run this job
 this.runJob()
 
 
@@ -43,7 +38,7 @@ void runJob() {
 }
 
 void withCSIDevkitContainer(Closure body) {
-    withDockerContainer(args: DEVKIT_ARGS, image: DEVKIT_IMAGE, setRootPassword: true) {
+    withDockerContainer(args: '--network host --ipc=host -v /root:/root -v /etc/resolv.conf:/etc/resolv.conf -v /tmp:/tmp -v /var/run/docker.sock:/var/run/docker.sock -e "EUID=0" -e "EGID=0"', image: 'asdrepo.isus.emc.com:9042/csi-baremetal-devkit:latest', setRootPassword: true) {
         body()
   }
 }
