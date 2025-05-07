@@ -25,9 +25,9 @@ pipeline {
                 sh """
                     # Detect package manager
                     if command -v apt-get &> /dev/null; then
-                        sudo apt-get update && sudo apt-get install -y sshpass
+                        apt-get update && apt-get install -y sshpass
                     elif command -v yum &> /dev/null; then
-                        sudo yum install -y epel-release && sudo yum install -y sshpass
+                        yum install -y epel-release && yum install -y sshpass
                     elif command -v apk &> /dev/null; then
                         apk add --no-cache sshpass
                     else
