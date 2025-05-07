@@ -9,7 +9,7 @@ void runJob() {
             binaries              : ['linux-amd64', 'darwin-amd64', 'windows-amd64'],
     ]
 
-    nodeLib.node(label: '', time: 180) {
+    node {
         withCSIDevkitContainer() {
             stages {
                 stage('Checkout') {
