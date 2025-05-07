@@ -38,14 +38,15 @@ void runJob() {
                         }
                     }
 
+                }
             }
         }
+        catch (any) {
+            println any
+            throw any
+        }
     }
-    catch (any) {
-        println any
-        throw any
-    }
-}}
+}
 
 void withCSIDevkitContainer(Closure body) {
     withDockerContainer(args: DEVKIT_ARGS, image: DEVKIT_IMAGE, setRootPassword: true) {
