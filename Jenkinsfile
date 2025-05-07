@@ -4,7 +4,7 @@ pipeline {
     }
 
     environment {
-        DOCKER_REGISTRY = "achodak"
+        DOCKER_REGISTRY = "docker.io"
         DOCKER_CREDS = credentials('docker-credentials-id')
         PROJECT_NAME = "fileprocessing"
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
