@@ -27,15 +27,15 @@ pipeline {
                         echo "Copying kubeconfig..."
                         
                         sshpass -p '${PASSWORD}' scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                        ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/etc/rancher/rke2/rke2.yaml ${WORKSPACE_CONFIG_PATH} || {
+                        ${USERNAME}@${E2E_VM_SERVICE_NODE_IP}:/etc/rancher/rke2/rke2.yaml ${env.WORKSPACE_CONFIG_PATH} || {
                             echo "Error: Failed to copy rke2.yaml"; exit 1;
                         }
                         
-                        chmod 600 ${WORKSPACE_CONFIG_PATH} || {
+                        chmod 600 ${env.WORKSPACE_CONFIG_PATH} || {
                             echo "Error: Failed to set permissions for rke2.yaml"; exit 1;
                         }
                         
-                        export KUBECONFIG=${WORKSPACE_CONFIG_PATH}
+                        export KUBECONFIG=${env.WORKSPACE_CONFIG_PATH}
                         
                         echo "Opening SSH tunnel to node VM..."
                         sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
