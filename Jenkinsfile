@@ -19,6 +19,8 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
+                    sh "uname -a"
+                    sh "cat /etc/os-release"
                     withCredentials([usernamePassword(credentialsId: 'docker-credentials-id', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
                         sh "docker login -u ${USERNAME} -p ${PASSWORD} ${DOCKER_REGISTRY}"
                     }
