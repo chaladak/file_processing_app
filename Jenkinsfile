@@ -19,45 +19,12 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
-                    sh "uname -a"
-                    sh "cat /etc/os-release"
                     sh """
                         su -  # Switch to the root user (you may need the root password)
                         apt update
                         apt install -y sudo
-                        if ! command -v docker &> /dev/null; then
-                            echo "Docker not found. Installing Docker..."
-                            
-                            # Update the package list
-                            sudo apt-get update
-                            
-                            # Install prerequisites
-                            sudo apt-get install -y ca-certificates curl gnupg
+                    """
 
-                            # Add Docker’s official GPG key
-                            sudo mkdir -m 0755 -p /etc/apt/keyrings
-                            curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-
-                            # Set up the repository
-                            echo \
-                            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
-                            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-                            # Update package index and install Docker
-                            sudo apt-get update
-                            sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-
-                            # Add Jenkins to the Docker group
-                            sudo usermod -aG docker jenkins
-
-                            # Restart Docker to apply group changes
-                            sudo systemctl restart docker
-
-                            echo "Docker installed successfully."
-                        else
-                            echo "Docker is already installed."
-                        fi
-                        """
                     withCredentials([usernamePassword(credentialsId: 'docker-credentials-id', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
                         sh "docker login -u ${USERNAME} -p ${PASSWORD} ${DOCKER_REGISTRY}"
                     }
