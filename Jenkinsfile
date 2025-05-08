@@ -78,9 +78,9 @@ pipeline {
                             kubectl -n ${PROJECT_NAME} wait --for=condition=ready pod -l app=minio --timeout=120s
                             
                             # Apply application services with special handling for image tags
-                            cat k8s/api.yaml | sed "s|image:.*fileprocessing-api:.*|image: $DOCKER_REGISTRY/$PROJECT_NAME-api:$TAG|g" | kubectl apply -f -
-                            cat k8s/processor.yaml | sed "s|image:.*fileprocessing-processor:.*|image: $DOCKER_REGISTRY/$PROJECT_NAME-processor:$TAG|g" | kubectl apply -f -
-                            cat k8s/notifier.yaml | sed "s|image:.*fileprocessing-notifier:.*|image: $DOCKER_REGISTRY/$PROJECT_NAME-notifier:$TAG|g" | kubectl apply -f -
+                            cat k8s/api.yaml | sed 's|\\\${DOCKER_REGISTRY}|${DOCKER_REGISTRY}|g' | sed 's|\\\${PROJECT_NAME}|${PROJECT_NAME}|g' | sed 's|\\\${TAG}|${TAG}|g' | kubectl apply -f -
+                            cat k8s/processor.yaml | sed 's|\\\${DOCKER_REGISTRY}|${DOCKER_REGISTRY}|g' | sed 's|\\\${PROJECT_NAME}|${PROJECT_NAME}|g' | sed 's|\\\${TAG}|${TAG}|g' | kubectl apply -f -
+                            cat k8s/notifier.yaml | sed 's|\\\${DOCKER_REGISTRY}|${DOCKER_REGISTRY}|g' | sed 's|\\\${PROJECT_NAME}|${PROJECT_NAME}|g' | sed 's|\\\${TAG}|${TAG}|g' | kubectl apply -f -
 
                             # Apply ingress last
                             cat k8s/ingress.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
