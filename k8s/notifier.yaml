@@ -19,3 +19,5 @@ spec:
         envFrom:
         - configMapRef:
             name: ${PROJECT_NAME}-config
+      imagePullSecrets:
+      - name: dockerhub-secret

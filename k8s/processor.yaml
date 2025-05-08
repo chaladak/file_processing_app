@@ -33,6 +33,8 @@ spec:
         volumeMounts:
         - name: nfs-storage
           mountPath: /nfs_data
+      imagePullSecrets:
+      - name: dockerhub-secret
       volumes:
       - name: nfs-storage
         persistentVolumeClaim:
