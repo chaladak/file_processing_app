@@ -37,8 +37,9 @@ spec:
         readinessProbe:
           exec:
             command: ["rabbitmq-diagnostics", "check_port_connectivity"]
-          initialDelaySeconds: 5
-          periodSeconds: 5
+          initialDelaySeconds: 30  # Increased delay before first probe
+          periodSeconds: 10        # Probe frequency
+          timeoutSeconds: 5        # Probe timeout
       volumes:
       - name: rabbitmq-storage
         persistentVolumeClaim:
