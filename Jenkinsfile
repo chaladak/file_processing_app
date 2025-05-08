@@ -18,7 +18,14 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 container('docker') {
-                    script {    
+                    script {   
+                        sh '''
+                            apk add --no-cache curl
+                            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                            chmod +x kubectl
+                            mv kubectl /usr/local/bin/
+                            kubectl version --client
+                        ''' 
                         withCredentials([usernamePassword(credentialsId: 'docker-credentials-id', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
                             sh "docker login -u ${USERNAME} -p ${PASSWORD} ${DOCKER_HUB}"
                         }
