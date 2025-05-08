@@ -26,11 +26,7 @@ pipeline {
                             sh "docker login -u ${USERNAME} -p ${PASSWORD} ${DOCKER_REGISTRY}"
                         }
                         
-                        sh "docker build docker build \
-                            --build-arg PIP_INDEX_URL=https://pypi.org/simple \
-                            --build-arg PIP_TRUSTED_HOST=pypi.org \
-                            --build-arg PIP_DEFAULT_TIMEOUT=100 \ 
-                            --network=host -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-api:${TAG} ./api_service"
+                        sh "docker build --network=host -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-api:${TAG} ./api_service"
                         sh "docker build --network=host -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor:${TAG} ./processor_service"
                         sh "docker build --network=host -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier:${TAG} ./notification_service"
                     }
