@@ -5,6 +5,7 @@ pipeline {
 
     environment {
         DOCKER_REGISTRY = "docker.io"
+        DOCKER_USERNAME = "achodak"
         DOCKER_CREDS = credentials('docker-credentials-id')
         PROJECT_NAME = "fileprocessing"
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
@@ -42,9 +43,9 @@ pipeline {
                             sh "echo ${PASSWORD} | docker login ${DOCKER_REGISTRY} -u ${USERNAME} --password-stdin"
                         }
                         
-                        sh "docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-api:${TAG}"
-                        sh "docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor:${TAG}"
-                        sh "docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier:${TAG}"
+                        sh "docker push ${DOCKER_USERNAME}/${PROJECT_NAME}-api:${TAG}"
+                        sh "docker push ${DOCKER_USERNAME}/${PROJECT_NAME}-processor:${TAG}"
+                        sh "docker push ${DOCKER_USERNAME}/${PROJECT_NAME}-notifier:${TAG}"
                     }
                 }
             }
