@@ -27,9 +27,9 @@ pipeline {
                             sh "docker login -u ${USERNAME} -p ${PASSWORD} ${DOCKER_REGISTRY}"
                         }
                         
-                        sh "docker build --network=host -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-api:${TAG} ./api_service"
-                        sh "docker build --network=host -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor:${TAG} ./processor_service"
-                        sh "docker build --network=host -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier:${TAG} ./notification_service"
+                        sh "docker build --network=host -t ${DOCKER_USERNAME}/${PROJECT_NAME}-api:${TAG} ./api_service"
+                        sh "docker build --network=host -t ${DOCKER_USERNAME}/${PROJECT_NAME}-processor:${TAG} ./processor_service"
+                        sh "docker build --network=host -t ${DOCKER_USERNAME}/${PROJECT_NAME}-notifier:${TAG} ./notification_service"
                     }
                 }
             }
