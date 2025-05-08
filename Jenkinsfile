@@ -50,14 +50,15 @@ pipeline {
             steps {
                 container('docker') {
                     script {
-                        // Apply Kubernetes manifests with variable substitution
-                        sh """
+                        sh '''
                             apk add --no-cache curl
                             curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
                             chmod +x kubectl
                             mv kubectl /usr/local/bin/
                             kubectl version --client
-
+                        '''
+                        // Apply Kubernetes manifests with variable substitution
+                        sh """
                             export KUBECONFIG=${KUBECONFIG}
                             
                             # Create namespace first
