@@ -14,11 +14,6 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
         
         stage('Build Docker Images') {
             steps {
@@ -56,19 +51,18 @@ pipeline {
                 script {
                     // Apply Kubernetes manifests with variable substitution
                     sh """
-                        envsubst --version
                         export KUBECONFIG=${KUBECONFIG}
                         
                         # Create namespace first
-                        envsubst < k8s/namespace.yaml | kubectl apply -f -
+                        cat k8s/namespace.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
                         
                         # Apply other resources with variable substitution
-                        envsubst < k8s/configmap.yaml | kubectl apply -f -
-                        envsubst < k8s/secret.yaml | kubectl apply -f -
-                        envsubst < k8s/nfs-pv.yaml | kubectl apply -f -
-                        envsubst < k8s/postgres.yaml | kubectl apply -f -
-                        envsubst < k8s/rabbitmq.yaml | kubectl apply -f -
-                        envsubst < k8s/minio.yaml | kubectl apply -f -
+                        cat k8s/configmap.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
+                        cat k8s/secret.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
+                        cat k8s/nfs-pv.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
+                        cat k8s/postgres.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
+                        cat k8s/rabbitmq.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
+                        cat k8s/minio.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
                         
                         # Wait for infrastructure to be ready
                         kubectl -n ${PROJECT_NAME} wait --for=condition=ready pod -l app=postgres --timeout=120s
@@ -76,12 +70,12 @@ pipeline {
                         kubectl -n ${PROJECT_NAME} wait --for=condition=ready pod -l app=minio --timeout=120s
                         
                         # Apply application services with special handling for image tags
-                        cat k8s/api.yaml | sed 's|image:.*fileprocessing-api:.*|image: ${DOCKER_REGISTRY}/${PROJECT_NAME}-api:${TAG}|g' | envsubst | kubectl apply -f -
-                        cat k8s/processor.yaml | sed 's|image:.*fileprocessing-processor:.*|image: ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor:${TAG}|g' | envsubst | kubectl apply -f -
-                        cat k8s/notifier.yaml | sed 's|image:.*fileprocessing-notifier:.*|image: ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier:${TAG}|g' | envsubst | kubectl apply -f -
+                        cat k8s/api.yaml | sed 's|image:.*fileprocessing-api:.*|image: ${DOCKER_REGISTRY}/${PROJECT_NAME}-api:${TAG}|g' | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
+                        cat k8s/processor.yaml | sed 's|image:.*fileprocessing-processor:.*|image: ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor:${TAG}|g' | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
+                        cat k8s/notifier.yaml | sed 's|image:.*fileprocessing-notifier:.*|image: ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier:${TAG}|g' | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
                         
                         # Apply ingress last
-                        envsubst < k8s/ingress.yaml | kubectl apply -f -
+                        cat k8s/ingress.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
                     """
                 }
             }
