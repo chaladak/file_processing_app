@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - name: minio
-        image: minio/minio
+        image: asdrepo.isus.emc.com:9042/minio
         args:
         - server
         - /data
