@@ -3,11 +3,13 @@ kind: Deployment
 metadata:
   name: processor
   namespace: ${PROJECT_NAME}
+  labels:
+    app: processor
 spec:
+  replicas: 2
   selector:
     matchLabels:
       app: processor
-  replicas: 1
   template:
     metadata:
       labels:
@@ -16,26 +18,77 @@ spec:
       containers:
       - name: processor
         image: ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor:${TAG}
-        envFrom:
-        - configMapRef:
-            name: ${PROJECT_NAME}-config
         env:
-        - name: S3_ACCESS_KEY
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ${PROJECT_NAME}-config
+              key: postgres-host
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: ${PROJECT_NAME}-config
+              key: postgres-db
+        - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secret
-              key: S3_ACCESS_KEY
-        - name: S3_SECRET_KEY
+              name: ${PROJECT_NAME}-secrets
+              key: postgres-user
+        - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secret
-              key: S3_SECRET_KEY
+              name: ${PROJECT_NAME}-secrets
+              key: postgres-password
+        - name: RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ${PROJECT_NAME}-config
+              key: rabbitmq-host
+        - name: RABBITMQ_USER
+          valueFrom:
+            secretKeyRef:
+              name: ${PROJECT_NAME}-secrets
+              key: rabbitmq-user
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ${PROJECT_NAME}-secrets
+              key: rabbitmq-password
+        - name: MINIO_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ${PROJECT_NAME}-config
+              key: minio-host
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ${PROJECT_NAME}-secrets
+              key: minio-access-key
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ${PROJECT_NAME}-secrets
+              key: minio-secret-key
+        - name: NOTIFICATION_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: ${PROJECT_NAME}-config
+              key: notification-service-url
+        - name: NFS_PATH
+          value: "/mnt/nfs_clientshare"
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/$(POSTGRES_DB)"
         volumeMounts:
-        - name: nfs-storage
-          mountPath: /nfs_data
-      imagePullSecrets:
-      - name: dockerhub-secret
+        - name: shared-data
+          mountPath: /mnt/nfs_clientshare
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
       volumes:
-      - name: nfs-storage
+      - name: shared-data
         persistentVolumeClaim:
-          claimName: nfs-pvc
+          claimName: nfs-pvc-new

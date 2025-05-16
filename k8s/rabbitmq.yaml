@@ -1,25 +1,14 @@
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: rabbitmq-pvc
-  namespace: ${PROJECT_NAME}
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rabbitmq
-  namespace: ${PROJECT_NAME}
+  labels:
+    app: rabbitmq
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: rabbitmq
-  replicas: 1
   template:
     metadata:
       labels:
@@ -31,25 +20,34 @@ spec:
         ports:
         - containerPort: 5672
         - containerPort: 15672
-        volumeMounts:
-        - name: rabbitmq-storage
-          mountPath: /var/lib/rabbitmq
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          valueFrom:
+            secretKeyRef:
+              name: ${PROJECT_NAME}-secrets
+              key: rabbitmq-user
+        - name: RABBITMQ_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: ${PROJECT_NAME}-secrets
+              key: rabbitmq-password
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
         readinessProbe:
-          exec:
-            command: ["rabbitmq-diagnostics", "check_port_connectivity"]
-          initialDelaySeconds: 30  # Increased delay before first probe
-          periodSeconds: 10        # Probe frequency
-          timeoutSeconds: 5        # Probe timeout
-      volumes:
-      - name: rabbitmq-storage
-        persistentVolumeClaim:
-          claimName: rabbitmq-pvc
+          tcpSocket:
+            port: 5672
+          initialDelaySeconds: 10
+          periodSeconds: 20
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: rabbitmq-service
-  namespace: ${PROJECT_NAME}
 spec:
   selector:
     app: rabbitmq
@@ -60,3 +58,4 @@ spec:
   - name: management
     port: 15672
     targetPort: 15672
+  type: ClusterIP

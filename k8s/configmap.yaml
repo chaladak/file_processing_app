@@ -4,9 +4,11 @@ metadata:
   name: ${PROJECT_NAME}-config
   namespace: ${PROJECT_NAME}
 data:
-  DATABASE_URL: postgresql://admin:password@postgres-service:5432/fileprocessing
-  RABBITMQ_URL: amqp://guest:guest@rabbitmq-service:5672/
-  S3_ENDPOINT: http://minio-service:9000
-  RABBITMQ_HOST: rabbitmq-service
-  RABBITMQ_PORT: "5672"
-  NFS_MOUNT_PATH: /nfs_data
+  postgres-host: "postgres-service"
+  postgres-db: "${PROJECT_NAME}"
+  rabbitmq-host: "rabbitmq-service"
+  minio-host: "minio-service:9000"
+  storage-path: "/data/files"
+  notification-service-url: "http://notifier-service"
+  api-url: "http://api-service"
+  s3-endpoint: "http://minio-service:9000"

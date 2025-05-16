@@ -2,24 +2,24 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-pvc
-  namespace: ${PROJECT_NAME}
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi
+      storage: 5Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
-  namespace: ${PROJECT_NAME}
+  labels:
+    app: postgres
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: postgres
-  replicas: 1
   template:
     metadata:
       labels:
@@ -32,24 +32,32 @@ spec:
         - containerPort: 5432
         env:
         - name: POSTGRES_DB
-          value: fileprocessing
+          valueFrom:
+            configMapKeyRef:
+              name: ${PROJECT_NAME}-config
+              key: postgres-db
         - name: POSTGRES_USER
-          value: admin
+          valueFrom:
+            secretKeyRef:
+              name: ${PROJECT_NAME}-secrets
+              key: postgres-user
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secret
-              key: POSTGRES_PASSWORD
+              name: ${PROJECT_NAME}-secrets
+              key: postgres-password
         volumeMounts:
-        - name: postgres-storage
+        - name: postgres-data
           mountPath: /var/lib/postgresql/data
-        readinessProbe:
-          exec:
-            command: ["pg_isready", "-U", "admin", "-d", "fileprocessing"]
-          initialDelaySeconds: 5
-          periodSeconds: 5
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "0.5"
+            memory: "512Mi"
       volumes:
-      - name: postgres-storage
+      - name: postgres-data
         persistentVolumeClaim:
           claimName: postgres-pvc
 ---
@@ -57,10 +65,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres-service
-  namespace: ${PROJECT_NAME}
 spec:
   selector:
     app: postgres
   ports:
   - port: 5432
     targetPort: 5432
+  type: ClusterIP

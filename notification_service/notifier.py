@@ -13,15 +13,8 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Read RabbitMQ host and port from the environment variables
-rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
-
-# Database setup (use DATABASE_URL from environment variable)
-DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_engine(DATABASE_URL)
+# Define database models
 Base = declarative_base()
-Base.metadata.create_all(engine)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class FileRecord(Base):
     __tablename__ = "file_records"
@@ -44,44 +37,57 @@ class Notification(Base):
     sent_at = Column(DateTime, nullable=False)
     details = Column(Text, nullable=True)
 
-# RabbitMQ connection and retry logic
-def wait_for_rabbitmq():
-    """Wait for RabbitMQ to be fully available before connecting."""
-    rabbitmq_api_url = "http://rabbitmq:15672/api/healthchecks/node"
-    rabbitmq_user = "guest"
-    rabbitmq_pass = "guest"
-    retry_count = 0
-    max_retries = 30
+# Get RabbitMQ URL from environment variables
+def get_rabbitmq_url():
+    rabbitmq_url = os.environ.get("RABBITMQ_URL")
+    if not rabbitmq_url:
+        # Build it from individual environment variables
+        rabbitmq_host = os.environ.get("RABBITMQ_HOST", "rabbitmq-service")
+        rabbitmq_user = os.environ.get("RABBITMQ_USER", "guest")
+        rabbitmq_pass = os.environ.get("RABBITMQ_PASSWORD", "guest")
+        rabbitmq_url = f"amqp://{rabbitmq_user}:{rabbitmq_pass}@{rabbitmq_host}:5672/%2F"
+        logger.info(f"Constructed RabbitMQ URL from environment variables: {rabbitmq_host}")
+    return rabbitmq_url
 
-    while retry_count < max_retries:
-        try:
-            response = requests.get(rabbitmq_api_url, auth=(rabbitmq_user, rabbitmq_pass), timeout=5)
-            if response.status_code == 200 and response.json().get("status") == "ok":
-                logger.info("RabbitMQ is ready.")
-                return True
-        except requests.RequestException:
-            logger.info(f"Waiting for RabbitMQ... Attempt {retry_count + 1}/{max_retries}")
+# Get Database URL from environment variables
+def get_database_url():
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        # Build it from individual environment variables
+        pg_user = os.environ.get("POSTGRES_USER")
+        pg_pass = os.environ.get("POSTGRES_PASSWORD")
+        pg_host = os.environ.get("POSTGRES_HOST")
+        pg_db = os.environ.get("POSTGRES_DB")
+        if all([pg_user, pg_pass, pg_host, pg_db]):
+            database_url = f"postgresql://{pg_user}:{pg_pass}@{pg_host}:5432/{pg_db}"
+            logger.info(f"Constructed DATABASE_URL from environment variables")
+    return database_url
 
-        retry_count += 1
-        time.sleep(2)
-
-    raise Exception("RabbitMQ did not become ready in time.")
+# Database setup
+DATABASE_URL = get_database_url()
+logger.info(f"Using database URL: {DATABASE_URL}")
+engine = create_engine(DATABASE_URL)
+Base.metadata.create_all(engine)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_rabbitmq_connection():
     """Ensure RabbitMQ is ready before attempting to connect."""
-    wait_for_rabbitmq()
+    rabbitmq_url = get_rabbitmq_url()
+    logger.info(f"Connecting to RabbitMQ using URL parameters (host: {rabbitmq_url.split('@')[1].split('/')[0]})")
 
     retry_count = 0
     max_retries = 30
     while retry_count < max_retries:
         try:
             connection = pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
+            logger.info(f"RabbitMQ connection established (Attempt {retry_count + 1})")
             return connection
         except pika.exceptions.AMQPConnectionError:
             retry_count += 1
             logger.info(f"Connection attempt {retry_count}/{max_retries} failed. Retrying...")
             time.sleep(2)
 
+    logger.error("Failed to connect to RabbitMQ after multiple attempts")
     raise Exception("Failed to connect to RabbitMQ after multiple attempts")
 
 def send_notification(job_id, status, result):
