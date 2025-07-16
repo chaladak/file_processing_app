@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ${PROJECT_NAME}-config
-  namespace: ${PROJECT_NAME}
+  name: fileprocessing-config
+  namespace: fileprocessing
 data:
   postgres-host: "postgres-service"
-  postgres-db: "${PROJECT_NAME}"
+  postgres-db: "fileprocessing"
   rabbitmq-host: "rabbitmq-service"
   minio-host: "minio-service:9000"
   storage-path: "/data/files"

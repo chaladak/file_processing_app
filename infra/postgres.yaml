@@ -34,17 +34,17 @@ spec:
         - name: POSTGRES_DB
           valueFrom:
             configMapKeyRef:
-              name: ${PROJECT_NAME}-config
+              name: fileprocessing-config
               key: postgres-db
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: postgres-user
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: postgres-password
         volumeMounts:
         - name: postgres-data

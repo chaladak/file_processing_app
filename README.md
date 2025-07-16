@@ -32,3 +32,5 @@ docker exec -it file_processing_app-postgres-1 psql -U admin -d fileprocessing
 SELECT * FROM file_records LIMIT 40;
 SELECT * FROM notifications LIMIT 40;
 \q
+
+curl -k  https://fileprocessing.example.com/health --resolve fileprocessing.example.com:443:100.80.77.191

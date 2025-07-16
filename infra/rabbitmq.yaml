@@ -24,12 +24,12 @@ spec:
         - name: RABBITMQ_DEFAULT_USER
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: rabbitmq-user
         - name: RABBITMQ_DEFAULT_PASS
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: rabbitmq-password
         resources:
           limits:

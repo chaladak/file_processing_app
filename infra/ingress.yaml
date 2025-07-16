@@ -1,17 +1,17 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ${PROJECT_NAME}-ingress
-  namespace: ${PROJECT_NAME}
+  name: fileprocessing-ingress
+  namespace: fileprocessing
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   tls:
   - hosts:
-    - ${PROJECT_NAME}.example.com
-    secretName: ${PROJECT_NAME}-tls
+    - fileprocessing.example.com
+    secretName: fileprocessing-tls
   rules:
-  - host: ${PROJECT_NAME}.example.com
+  - host: fileprocessing.example.com
     http:
       paths:
       - path: /health
