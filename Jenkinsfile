@@ -30,6 +30,20 @@ pipeline {
                 }
             }
         }
+
+        stage('Run tests') {
+            steps {
+                container('docker') {
+                    script {
+                        sh '''
+                            # Run your test commands here
+                            echo "Running tests..."
+                            # Example: ./run_tests.sh
+                        '''
+                    }
+                }
+            }
+        }
         
         stage('Push Docker Images') {
             steps {
