@@ -42,7 +42,7 @@ pipeline {
                                 -e TESTING=true \
                                 -v $(pwd)/api_service:/app \
                                 ${DOCKER_REGISTRY}/${PROJECT_NAME}-api-test:${TAG} \
-                                /bin/sh -c "pip install -r /app/tests/requirements.txt && pytest /app/tests/test_api.py --verbose"
+                                /bin/sh -c "pip install -r /app/api_service/tests/requirements.txt && pytest /app/api_service/tests/test_api.py --verbose"
 
                             # Run tests for processor_service
                             docker build --network=host -f processor_service/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor-test:${TAG} ./processor_service
@@ -50,7 +50,7 @@ pipeline {
                                 -e TESTING=true \
                                 -v $(pwd)/processor_service:/app \
                                 ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor-test:${TAG} \
-                                /bin/sh -c "pip install -r /app/tests/requirements.txt && pytest /app/tests/test_processor.py --verbose"
+                                /bin/sh -c "pip install -r /app/processor_service/tests/requirements.txt && pytest /app/processor_service/tests/test_processor.py --verbose"
 
                             # Run tests for notification_service
                             docker build --network=host -f notification_service/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier-test:${TAG} ./notification_service
@@ -58,7 +58,7 @@ pipeline {
                                 -e TESTING=true \
                                 -v $(pwd)/notification_service:/app \
                                 ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier-test:${TAG} \
-                                /bin/sh -c "pip install -r /app/tests/requirements.txt && pytest /app/tests/test_notifier.py --verbose"
+                                /bin/sh -c "pip install -r /app/notification_service/tests/requirements.txt && pytest /app/notification_service/tests/test_notifier.py --verbose"
                         '''
                     }
                 }
