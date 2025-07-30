@@ -5,15 +5,13 @@ import pika
 import logging
 import requests
 from sqlalchemy import create_engine, Column, String, DateTime, Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import StaticPool
 from datetime import datetime
 
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Define database models
 Base = declarative_base()
 
 class FileRecord(Base):
@@ -41,7 +39,6 @@ class Notification(Base):
 def get_rabbitmq_url():
     rabbitmq_url = os.environ.get("RABBITMQ_URL")
     if not rabbitmq_url:
-        # Build it from individual environment variables
         rabbitmq_host = os.environ.get("RABBITMQ_HOST", "rabbitmq-service")
         rabbitmq_user = os.environ.get("RABBITMQ_USER", "guest")
         rabbitmq_pass = os.environ.get("RABBITMQ_PASSWORD", "guest")
@@ -51,9 +48,14 @@ def get_rabbitmq_url():
 
 # Get Database URL from environment variables
 def get_database_url():
+    # Check TESTING first to use SQLite for tests
+    if os.getenv("TESTING", "false").lower() == "true":
+        logger.info("Using SQLite in-memory database for testing")
+        return "sqlite:///:memory:"
+    
+    # Production: Construct PostgreSQL URL
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
-        # Build it from individual environment variables
         pg_user = os.environ.get("POSTGRES_USER")
         pg_pass = os.environ.get("POSTGRES_PASSWORD")
         pg_host = os.environ.get("POSTGRES_HOST")
@@ -61,12 +63,19 @@ def get_database_url():
         if all([pg_user, pg_pass, pg_host, pg_db]):
             database_url = f"postgresql://{pg_user}:{pg_pass}@{pg_host}:5432/{pg_db}"
             logger.info(f"Constructed DATABASE_URL from environment variables")
+        else:
+            logger.error("Missing environment variables for PostgreSQL; cannot construct DATABASE_URL")
+            raise ValueError("DATABASE_URL or PostgreSQL environment variables not set")
     return database_url
 
 # Database setup
 DATABASE_URL = get_database_url()
 logger.info(f"Using database URL: {DATABASE_URL}")
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+    poolclass=StaticPool if "sqlite" in DATABASE_URL else None,
+)
 Base.metadata.create_all(engine)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -97,9 +106,7 @@ def send_notification(job_id, status, result):
     """
     logger.info(f"Sending notification for job {job_id} with status {status}")
     
-    # Simulate HTTP webhook call (for demonstration purposes)
     try:
-        # Placeholder for actual HTTP webhook logic
         logger.info(f"NOTIFICATION: Job {job_id} - Status: {status} - Result: {result}")
         
         # Save notification to the database
@@ -118,7 +125,7 @@ def send_notification(job_id, status, result):
         return True
     except Exception as e:
         logger.error(f"Error sending notification for job {job_id}: {str(e)}")
-        return False
+        raise  # Raise exception to be handled by caller
 
 def callback(ch, method, properties, body):
     message = json.loads(body)
@@ -135,11 +142,10 @@ def callback(ch, method, properties, body):
         logger.error(f"Error processing notification for job {job_id}: {str(e)}")
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
-
 def main():
     logger.info("Notification service starting...")
     
-    connection = get_rabbitmq_connection()  # Establish the connection after ensuring RabbitMQ is ready
+    connection = get_rabbitmq_connection()
     
     channel = connection.channel()
     channel.queue_declare(queue='notifications')
@@ -148,7 +154,6 @@ def main():
     
     logger.info("Waiting for notification messages. To exit press CTRL+C")
     channel.start_consuming()
-
 
 if __name__ == "__main__":
     try:

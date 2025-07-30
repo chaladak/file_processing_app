@@ -1,9 +1,9 @@
 from sqlalchemy import Column, String, DateTime, Text
-from database import Base  # Import Base from database.py
+from database import Base
+from datetime import datetime
 
 class FileRecord(Base):
     __tablename__ = "file_records"
-    
     id = Column(String, primary_key=True)
     filename = Column(String, nullable=False)
     s3_path = Column(String, nullable=False)

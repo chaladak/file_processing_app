@@ -36,9 +36,29 @@ pipeline {
                 container('docker') {
                     script {
                         sh '''
-                            # Run your test commands here
-                            echo "Running tests..."
-                            # Example: ./run_tests.sh
+                            # Run tests for api_service
+                            docker build --network=host -f api_service/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-api-test:${TAG} ./api_service
+                            docker run --rm \
+                                -e TESTING=true \
+                                -v $(pwd)/api_service:/app \
+                                ${DOCKER_REGISTRY}/${PROJECT_NAME}-api-test:${TAG} \
+                                /bin/sh -c "pip install -r /app/tests/requirements.txt && pytest /app/tests/test_api.py --verbose"
+
+                            # Run tests for processor_service
+                            docker build --network=host -f processor_service/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor-test:${TAG} ./processor_service
+                            docker run --rm \
+                                -e TESTING=true \
+                                -v $(pwd)/processor_service:/app \
+                                ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor-test:${TAG} \
+                                /bin/sh -c "pip install -r /app/tests/requirements.txt && pytest /app/tests/test_processor.py --verbose"
+
+                            # Run tests for notification_service
+                            docker build --network=host -f notification_service/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier-test:${TAG} ./notification_service
+                            docker run --rm \
+                                -e TESTING=true \
+                                -v $(pwd)/notification_service:/app \
+                                ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier-test:${TAG} \
+                                /bin/sh -c "pip install -r /app/tests/requirements.txt && pytest /app/tests/test_notifier.py --verbose"
                         '''
                     }
                 }
