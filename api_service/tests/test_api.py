@@ -77,7 +77,7 @@ def client():
         mock_pika.return_value = mock_connection
         
         # Now import the app after mocking
-        from app import app
+        from app.app import app
         from database import Base, get_db
         
         # Override the database dependency
