@@ -36,34 +36,26 @@ pipeline {
                 container('docker') {
                     script {
                         sh '''
-                            # Debug: Verify workspace files
-                            ls -l /home/jenkins/agent/workspace/fileprocessing_build/api_service
-                            ls -l /home/jenkins/agent/workspace/fileprocessing_build/api_service/tests
-                            ls -l /home/jenkins/agent/workspace/fileprocessing_build/processor_service
-                            ls -l /home/jenkins/agent/workspace/fileprocessing_build/processor_service/tests
-                            ls -l /home/jenkins/agent/workspace/fileprocessing_build/notification_service
-                            ls -l /home/jenkins/agent/workspace/fileprocessing_build/notification_service/tests
-
                             # Run tests for api_service
                             docker build --network=host --no-cache -f api_service/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-api-test:${TAG} /home/jenkins/agent/workspace/fileprocessing_build/api_service
                             docker run --rm \
                                 -e TESTING=true \
                                 ${DOCKER_REGISTRY}/${PROJECT_NAME}-api-test:${TAG} \
-                                /bin/sh -c "ls -l /app/tests && pip install -r /app/tests/requirements.txt && pytest /app/tests/test_api.py --verbose"
+                                /bin/sh -c "pytest /app/tests/test_api.py"
 
                             # Run tests for processor_service
                             docker build --network=host --no-cache -f processor_service/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor-test:${TAG} /home/jenkins/agent/workspace/fileprocessing_build/processor_service
                             docker run --rm \
                                 -e TESTING=true \
                                 ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor-test:${TAG} \
-                                /bin/sh -c "ls -l /app/tests && pip install -r /app/tests/requirements.txt && pytest /app/tests/test_processor.py --verbose"
+                                /bin/sh -c "pytest /app/tests/test_processor.py"
 
                             # Run tests for notification_service
                             docker build --network=host --no-cache -f notification_service/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier-test:${TAG} /home/jenkins/agent/workspace/fileprocessing_build/notification_service
                             docker run --rm \
                                 -e TESTING=true \
                                 ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier-test:${TAG} \
-                                /bin/sh -c "ls -l /app/tests && pip install -r /app/tests/requirements.txt && pytest /app/tests/test_notifier.py --verbose"
+                                /bin/sh -c "pytest /app/tests/test_notifier.py"
                         '''
                     }
                 }

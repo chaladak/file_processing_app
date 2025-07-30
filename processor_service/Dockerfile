@@ -8,6 +8,9 @@ RUN chmod +x /app/wait-for-rabbitmq.py
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY tests/requirements.txt /app/tests/requirements.txt
+RUN pip install -r /app/tests/requirements.txt
+
 COPY . .
 
 # Use an entrypoint script to wait for RabbitMQ then start your app
