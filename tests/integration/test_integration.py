@@ -562,6 +562,68 @@ def test_background_task_processes_and_updates_status(rabbitmq_channel):
     assert data["status"] == "processed"
     assert data["processed_at"] is not None
 
+def test_s3_upload_failure_sets_error_status(monkeypatch):
+    """Simulate S3 upload failure and ensure DB is updated with error status."""
+    filename = "s3_fail_test.txt"
+    file_content = b"S3 fail content"
+
+    # Monkeypatch the S3 upload function to raise an exception
+    def mock_upload_fileobj(*args, **kwargs):
+        raise Exception("Simulated S3 upload failure")
+
+    monkeypatch.setattr(s3_client, "upload_fileobj", mock_upload_fileobj)
+
+    files = {"file": (filename, file_content, "text/plain")}
+    response = client.post("/upload/", files=files)
+
+    assert response.status_code == 500
+    assert "Simulated S3 upload failure" in response.json()["detail"]
+
+    # The job ID is in the temp path, so extract it from DB
+    db = TestSessionLocal()
+    try:
+        file_record = db.query(models.FileRecord).order_by(models.FileRecord.uploaded_at.desc()).first()
+        assert file_record is not None
+        assert file_record.status == "error"
+    finally:
+        db.close()
+
+
+def test_already_processed_job_not_reprocessed():
+    """Test that an already processed job does not get reprocessed or reset when fetched via /status."""
+    file_content = b"Final test content"
+    filename = "final.txt"
+    expected_hash = hashlib.sha256(file_content).hexdigest()
+
+    # Upload file
+    files = {"file": (filename, file_content, "text/plain")}
+    response = client.post("/upload/", files=files)
+    assert response.status_code == 200
+    job_id = response.json()["job_id"]
+
+    # Simulate processing completion
+    db = TestSessionLocal()
+    try:
+        file_record = db.query(models.FileRecord).filter(models.FileRecord.id == job_id).first()
+        file_record.status = "processed"
+        file_record.processed_at = datetime.now(timezone.utc)
+        file_record.processing_result = json.dumps({
+            "success": True,
+            "file_hash": expected_hash,
+            "size_bytes": len(file_content),
+            "processed_timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        db.commit()
+    finally:
+        db.close()
+
+    # Fetch status again – status should remain processed
+    response = client.get(f"/status/{job_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "processed"
+    assert data["processed_at"] is not None
+
 if __name__ == "__main__":
     # Run tests individually for debugging
     print("Running integration tests...")
