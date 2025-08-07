@@ -5,6 +5,8 @@ pipeline {
 
     environment {
         KUBECONFIG = credentials('kubeconfig')
+        GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+        TAG = "${env.BUILD_NUMBER}-${GIT_COMMIT_SHORT}"
     }
 
     stages {
