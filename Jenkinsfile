@@ -79,7 +79,7 @@ pipeline {
                                 python:3.12-slim \
                                 sleep 600)
 
-                            docker exec $container_id mkdir -p /app
+                            docker exec $container_id mkdir -p /app /app/tests
                             docker cp ${WORKSPACE}/api_service/. $container_id:/app/api_service/
                             docker cp ${WORKSPACE}/processor_service/. $container_id:/app/processor_service/
                             docker cp ${WORKSPACE}/notification_service/. $container_id:/app/notification_service/
