@@ -14,7 +14,7 @@ INTEGRATION_COMPOSE = tests/integration/docker-compose.yml
 .PHONY: build test push deploy clean docker-login install-deps
 
 install-deps:
-	@apk add --no-cache curl git
+	@apk add --no-cache curl
 	@curl -LO "https://dl.k8s.io/release/$$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 	@chmod +x kubectl
 	@mv kubectl /usr/local/bin/
