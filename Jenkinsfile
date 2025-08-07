@@ -31,37 +31,98 @@ pipeline {
             }
         }
 
-        stage('Run tests') {
+        stage('Run Integration Tests') {
             steps {
                 container('docker') {
                     script {
                         sh '''
-                            # Run tests for api_service
-                            docker build --network=host --no-cache -f api_service/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-api-test:${TAG} /home/jenkins/agent/workspace/fileprocessing_build/api_service
-                            docker run --rm \
-                                -e TESTING=true \
-                                ${DOCKER_REGISTRY}/${PROJECT_NAME}-api-test:${TAG} \
-                                /bin/sh -c "pytest /app/tests/test_api.py"
+                            cd ${WORKSPACE}
+                            
+                            docker-compose -f ${WORKSPACE}/integration_tests/docker-compose.yml up -d --force-recreate
 
-                            # Run tests for processor_service
-                            docker build --network=host --no-cache -f processor_service/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor-test:${TAG} /home/jenkins/agent/workspace/fileprocessing_build/processor_service
-                            docker run --rm \
-                                -e TESTING=true \
-                                ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor-test:${TAG} \
-                                /bin/sh -c "pytest /app/tests/test_processor.py"
+                            echo "Waiting for services to be healthy..."
+                            timeout=300  # 5 minutes
+                            elapsed=0
+                            interval=5
 
-                            # Run tests for notification_service
-                            docker build --network=host --no-cache -f notification_service/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier-test:${TAG} /home/jenkins/agent/workspace/fileprocessing_build/notification_service
-                            docker run --rm \
+                            while [ $elapsed -lt $timeout ]; do
+                                if docker-compose -f ${WORKSPACE}/integration_tests/docker-compose.yml ps | grep -q "healthy"; then
+                                    health_count=$(docker-compose -f ${WORKSPACE}/integration_tests/docker-compose.yml ps | grep -c "healthy")
+                                    if [ $health_count -eq 2 ]; then
+                                        echo "All services are healthy!"
+                                        break
+                                    fi
+                                fi
+                                echo "Waiting for services to be healthy... ($elapsed/$timeout seconds)"
+                                sleep $interval
+                                elapsed=$((elapsed + interval))
+                            done
+
+                            if [ $elapsed -ge $timeout ]; then
+                                echo "ERROR: Services failed to become healthy within $timeout seconds"
+                                docker-compose -f ${WORKSPACE}/integration_tests/docker-compose.yml ps
+                                docker-compose -f ${WORKSPACE}/integration_tests/docker-compose.yml logs
+                                exit 1
+                            fi
+
+                            echo "Starting test container..."
+                            container_id=$(docker run -d \
+                                --network host \
                                 -e TESTING=true \
-                                ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier-test:${TAG} \
-                                /bin/sh -c "pytest /app/tests/test_notifier.py"
+                                -e S3_ENDPOINT=http://localhost:9000 \
+                                -e S3_ACCESS_KEY=minioadmin \
+                                -e S3_SECRET_KEY=minioadmin \
+                                -e RABBITMQ_URL=amqp://guest:guest@localhost:5672/%2F \
+                                -e DATABASE_URL=sqlite:///:memory: \
+                                -e NFS_PATH=/tmp \
+                                -e PYTHONPATH=/app \
+                                python:3.12-slim \
+                                sleep 600)
+
+                            docker exec $container_id mkdir -p /app
+                            docker cp ${WORKSPACE}/api_service/. $container_id:/app/api_service/
+                            docker cp ${WORKSPACE}/processor_service/. $container_id:/app/processor_service/
+                            docker cp ${WORKSPACE}/notification_service/. $container_id:/app/notification_service/
+                            docker cp ${WORKSPACE}/integration_tests/. $container_id:/app/integration_tests/
+
+                            docker exec $container_id touch /app/api_service/__init__.py
+                            docker exec $container_id touch /app/processor_service/__init__.py
+                            docker exec $container_id touch /app/notification_service/__init__.py
+
+                            echo "Running integration tests..."
+                            docker exec $container_id /bin/bash -c "
+                                set -e
+                                cd /app
+                                
+                                echo 'Installing dependencies...'
+                                pip install --no-cache-dir -r integration_tests/requirements.txt
+                                pip install --no-cache-dir -r api_service/requirements.txt
+                                pip install --no-cache-dir -r processor_service/requirements.txt
+                                pip install --no-cache-dir -r notification_service/requirements.txt
+                                
+                                export PYTHONPATH=/app:/app/api_service:/app/processor_service:/app/notification_service:\$PYTHONPATH
+                                
+                                echo 'Running integration tests...'
+                                python -m pytest integration_tests/test_integration.py -v --tb=short
+                            "
+
+                            test_exit_code=$?
+                            
+                            docker rm -f $container_id
+                            docker-compose -f ${WORKSPACE}/integration_tests/docker-compose.yml down -v
+
+                            if [ $test_exit_code -eq 0 ]; then
+                                echo "Integration tests PASSED"
+                            else
+                                echo "Integration tests FAILED"
+                                exit $test_exit_code
+                            fi
                         '''
                     }
                 }
             }
         }
-        
+
         stage('Push Docker Images') {
             steps {
                 container('docker') {
@@ -77,6 +138,7 @@ pipeline {
                 }
             }
         }
+
         stage('Deploy to Kubernetes') {
             steps {
                 container('docker') {
@@ -88,14 +150,11 @@ pipeline {
                             mv kubectl /usr/local/bin/
                             kubectl version --client
                         '''
-                        // Apply Kubernetes manifests with variable substitution
+
                         sh """
                             export KUBECONFIG=${KUBECONFIG}
                             
-                            # Create namespace first
                             cat k8s/namespace.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
-                            
-                            # Apply other resources with variable substitution
                             cat k8s/configmap.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
                             cat k8s/secret.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
                             cat k8s/nfs-pv.yaml | sed 's|\${PROJECT_NAME}|${PROJECT_NAME}|g' | kubectl apply -f -
@@ -123,17 +182,14 @@ pipeline {
     }
     post {
         always {
-            // Clean workspace
             cleanWs()
         }
         
         success {
-            // Notify on success
             echo "Deployment completed successfully!"
         }
         
         failure {
-            // Notify on failure
             echo "Deployment failed!"
         }
     }
