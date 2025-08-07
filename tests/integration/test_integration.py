@@ -460,6 +460,108 @@ def test_services_connectivity():
     except Exception as e:
         pytest.fail(f"Database connection failed: {e}")
 
+def test_duplicate_file_upload_creates_new_job_id():
+    """Uploading the same file twice should result in different job_ids and separate DB entries."""
+    file_content = b"Duplicate test content"
+    filename = "duplicate.txt"
+
+    files = {"file": (filename, file_content, "text/plain")}
+    response1 = client.post("/upload/", files=files)
+    response2 = client.post("/upload/", files=files)
+
+    assert response1.status_code == 200
+    assert response2.status_code == 200
+
+    job_id1 = response1.json()["job_id"]
+    job_id2 = response2.json()["job_id"]
+
+    assert job_id1 != job_id2, "Each upload should produce a unique job_id"
+
+    db = TestSessionLocal()
+    try:
+        record1 = db.query(models.FileRecord).filter(models.FileRecord.id == job_id1).first()
+        record2 = db.query(models.FileRecord).filter(models.FileRecord.id == job_id2).first()
+        assert record1 and record2
+        assert record1.filename == record2.filename
+        assert record1.nfs_path != record2.nfs_path
+    finally:
+        db.close()
+
+
+def test_status_for_nonexistent_job():
+    """Requesting status for a non-existent job_id should return 404."""
+    non_existent_job_id = str(uuid.uuid4())
+    response = client.get(f"/status/{non_existent_job_id}")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Job not found"
+
+
+def test_upload_empty_file():
+    """Uploading an empty file should still be accepted and processed."""
+    filename = "empty.txt"
+    files = {"file": (filename, b"", "text/plain")}
+    response = client.post("/upload/", files=files)
+
+    assert response.status_code == 200
+    job_id = response.json()["job_id"]
+
+    db = TestSessionLocal()
+    try:
+        file_record = db.query(models.FileRecord).filter(models.FileRecord.id == job_id).first()
+        assert file_record is not None
+        assert file_record.filename == filename
+        assert file_record.status == "uploaded"
+    finally:
+        db.close()
+
+
+def test_background_task_processes_and_updates_status(rabbitmq_channel):
+    """Test full flow: upload file -> wait -> simulate processor -> verify DB status."""
+    file_content = b"Background task content"
+    filename = "background.txt"
+    expected_hash = hashlib.sha256(file_content).hexdigest()
+
+    files = {"file": (filename, file_content, "text/plain")}
+    response = client.post("/upload/", files=files)
+
+    assert response.status_code == 200
+    job_id = response.json()["job_id"]
+
+    # Wait for file_processing message
+    for _ in range(20):
+        method, properties, body = rabbitmq_channel.basic_get(queue="file_processing", auto_ack=False)
+        if body:
+            message = json.loads(body)
+            if message["job_id"] == job_id:
+                rabbitmq_channel.basic_ack(delivery_tag=method.delivery_tag)
+                break
+        time.sleep(1)
+    else:
+        pytest.fail("No message received in file_processing queue for background task test")
+
+    # Simulate processor behavior
+    db = TestSessionLocal()
+    try:
+        file_record = db.query(models.FileRecord).filter(models.FileRecord.id == job_id).first()
+        file_record.status = "processed"
+        file_record.processed_at = datetime.now(timezone.utc)
+        file_record.processing_result = json.dumps({
+            "success": True,
+            "file_hash": expected_hash,
+            "size_bytes": len(file_content),
+            "processed_timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        db.commit()
+    finally:
+        db.close()
+
+    # Check status endpoint
+    status_response = client.get(f"/status/{job_id}")
+    assert status_response.status_code == 200
+    data = status_response.json()
+    assert data["status"] == "processed"
+    assert data["processed_at"] is not None
+
 if __name__ == "__main__":
     # Run tests individually for debugging
     print("Running integration tests...")
