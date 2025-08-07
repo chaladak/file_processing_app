@@ -14,6 +14,7 @@ pipeline {
             steps {
                 container('docker') {
                     script {
+                        apk add --no-cache make
                         withCredentials([usernamePassword(credentialsId: 'docker-credentials-id', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                             sh """
                                 export DOCKER_USERNAME=${DOCKER_USERNAME}
