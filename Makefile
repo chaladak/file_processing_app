@@ -2,9 +2,6 @@
 DOCKER_REGISTRY ?= achodak
 PROJECT_NAME ?= fileprocessing
 DOCKER_HUB ?= docker.io
-GIT_COMMIT_SHORT := $(shell git rev-parse --short HEAD)
-BUILD_NUMBER ?= local
-TAG ?= $(BUILD_NUMBER)-$(GIT_COMMIT_SHORT)
 
 # Service paths
 API_SERVICE = api_service
