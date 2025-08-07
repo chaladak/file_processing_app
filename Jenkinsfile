@@ -38,7 +38,7 @@ pipeline {
                         sh '''
                             cd ${WORKSPACE}
                             
-                            docker-compose -f ${WORKSPACE}/integration_tests/docker-compose.yml up -d --force-recreate
+                            docker-compose -f ${WORKSPACE}/tests/integration/docker-compose.yml up -d --force-recreate
 
                             echo "Waiting for services to be healthy..."
                             timeout=300  # 5 minutes
@@ -46,8 +46,8 @@ pipeline {
                             interval=5
 
                             while [ $elapsed -lt $timeout ]; do
-                                if docker-compose -f ${WORKSPACE}/integration_tests/docker-compose.yml ps | grep -q "healthy"; then
-                                    health_count=$(docker-compose -f ${WORKSPACE}/integration_tests/docker-compose.yml ps | grep -c "healthy")
+                                if docker-compose -f ${WORKSPACE}/tests/integration/docker-compose.yml ps | grep -q "healthy"; then
+                                    health_count=$(docker-compose -f ${WORKSPACE}/tests/integration/docker-compose.yml ps | grep -c "healthy")
                                     if [ $health_count -eq 2 ]; then
                                         echo "All services are healthy!"
                                         break
@@ -60,8 +60,8 @@ pipeline {
 
                             if [ $elapsed -ge $timeout ]; then
                                 echo "ERROR: Services failed to become healthy within $timeout seconds"
-                                docker-compose -f ${WORKSPACE}/integration_tests/docker-compose.yml ps
-                                docker-compose -f ${WORKSPACE}/integration_tests/docker-compose.yml logs
+                                docker-compose -f ${WORKSPACE}/tests/integration/docker-compose.yml ps
+                                docker-compose -f ${WORKSPACE}/tests/integration/docker-compose.yml logs
                                 exit 1
                             fi
 
@@ -83,7 +83,7 @@ pipeline {
                             docker cp ${WORKSPACE}/api_service/. $container_id:/app/api_service/
                             docker cp ${WORKSPACE}/processor_service/. $container_id:/app/processor_service/
                             docker cp ${WORKSPACE}/notification_service/. $container_id:/app/notification_service/
-                            docker cp ${WORKSPACE}/integration_tests/. $container_id:/app/integration_tests/
+                            docker cp ${WORKSPACE}/tests/integration/. $container_id:/app/tests/integration/
 
                             docker exec $container_id touch /app/api_service/__init__.py
                             docker exec $container_id touch /app/processor_service/__init__.py
@@ -95,7 +95,7 @@ pipeline {
                                 cd /app
                                 
                                 echo 'Installing dependencies...'
-                                pip install --no-cache-dir -r integration_tests/requirements.txt
+                                pip install --no-cache-dir -r tests/integration/requirements.txt
                                 pip install --no-cache-dir -r api_service/requirements.txt
                                 pip install --no-cache-dir -r processor_service/requirements.txt
                                 pip install --no-cache-dir -r notification_service/requirements.txt
@@ -103,13 +103,13 @@ pipeline {
                                 export PYTHONPATH=/app:/app/api_service:/app/processor_service:/app/notification_service:\$PYTHONPATH
                                 
                                 echo 'Running integration tests...'
-                                python -m pytest integration_tests/test_integration.py -v --tb=short
+                                python -m pytest tests/integration/test_integration.py -v --tb=short
                             "
 
                             test_exit_code=$?
                             
                             docker rm -f $container_id
-                            docker-compose -f ${WORKSPACE}/integration_tests/docker-compose.yml down -v
+                            docker-compose -f ${WORKSPACE}/tests/integration/docker-compose.yml down -v
 
                             if [ $test_exit_code -eq 0 ]; then
                                 echo "Integration tests PASSED"
