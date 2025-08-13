@@ -24,19 +24,15 @@ docker-login:
 	@echo "$(DOCKER_PASSWORD)" | docker login $(DOCKER_HUB) -u "$(DOCKER_USERNAME)" --password-stdin
 
 build:
-	docker build --network=host -t $(DOCKER_REGISTRY)/$(PROJECT_NAME)-api:$(TAG) ./$(API_SERVICE)
-	docker build --network=host -t $(DOCKER_REGISTRY)/$(PROJECT_NAME)-processor:$(TAG) ./$(PROCESSOR_SERVICE)
-	docker build --network=host -t $(DOCKER_REGISTRY)/$(PROJECT_NAME)-notifier:$(TAG) ./$(NOTIFIER_SERVICE)
+	docker build -t $(DOCKER_REGISTRY)/$(PROJECT_NAME)-api:$(TAG) ./$(API_SERVICE)
+	docker build -t $(DOCKER_REGISTRY)/$(PROJECT_NAME)-processor:$(TAG) ./$(PROCESSOR_SERVICE)
+	docker build -t $(DOCKER_REGISTRY)/$(PROJECT_NAME)-notifier:$(TAG) ./$(NOTIFIER_SERVICE)
 
 test-setup:
 	-docker-compose -f $(INTEGRATION_COMPOSE) down -v --remove-orphans 2>/dev/null || true
 	-docker container prune -f 2>/dev/null || true
 	-docker network prune -f 2>/dev/null || true
 	-docker volume prune -f 2>/dev/null || true
-	# Wait a bit for cleanup to complete
-	@sleep 2
-	# Pre-create the network to avoid iptables issues
-	-docker network create integration_integration_net 2>/dev/null || true
 	docker-compose -f $(INTEGRATION_COMPOSE) up -d --force-recreate
 
 test-wait:
@@ -63,7 +59,13 @@ test-wait:
 	fi
 
 test-run:
-	@NETWORK_NAME="integration_integration_net"; \
+	@# Find the network created by docker-compose
+	@NETWORK_NAME=$$(docker network ls --filter "name=integration" --format "{{.Name}}" | head -n1); \
+	if [ -z "$$NETWORK_NAME" ]; then \
+		echo "Error: Could not find integration network. Available networks:"; \
+		docker network ls; \
+		exit 1; \
+	fi; \
 	echo "Using network: $$NETWORK_NAME"; \
 	container_id=$$(docker run -d \
 		--network $$NETWORK_NAME \
@@ -78,6 +80,7 @@ test-run:
 		python:3.12-slim \
 		sleep 600); \
 	\
+	echo "Test container ID: $$container_id"; \
 	docker exec $$container_id mkdir -p /app /app/tests; \
 	docker cp ./$(API_SERVICE)/. $$container_id:/app/$(API_SERVICE)/; \
 	docker cp ./$(PROCESSOR_SERVICE)/. $$container_id:/app/$(PROCESSOR_SERVICE)/; \
@@ -92,6 +95,7 @@ test-run:
 	docker exec $$container_id /bin/bash -c " \
 		set -e; \
 		cd /app; \
+		apt-get update && apt-get install -y gcc; \
 		pip install --no-cache-dir -r tests/integration/requirements.txt; \
 		pip install --no-cache-dir -r $(API_SERVICE)/requirements.txt; \
 		pip install --no-cache-dir -r $(PROCESSOR_SERVICE)/requirements.txt; \
@@ -100,6 +104,7 @@ test-run:
 		python -m pytest tests/integration/test_integration.py -v --tb=short \
 	" || test_exit_code=$$?; \
 	\
+	echo "Cleaning up test container: $$container_id"; \
 	docker rm -f $$container_id; \
 	\
 	if [ $$test_exit_code -eq 0 ]; then \
@@ -111,7 +116,6 @@ test-run:
 
 test-cleanup:
 	-docker-compose -f $(INTEGRATION_COMPOSE) down -v 2>/dev/null || true
-	-docker network rm integration_integration_net 2>/dev/null || true
 
 test: test-setup test-wait test-run test-cleanup
 
