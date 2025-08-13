@@ -33,6 +33,10 @@ test-setup:
 	-docker container prune -f 2>/dev/null || true
 	-docker network prune -f 2>/dev/null || true
 	-docker volume prune -f 2>/dev/null || true
+	# Wait a bit for cleanup to complete
+	@sleep 2
+	# Pre-create the network to avoid iptables issues
+	-docker network create integration_integration_net 2>/dev/null || true
 	docker-compose -f $(INTEGRATION_COMPOSE) up -d --force-recreate
 
 test-wait:
@@ -59,13 +63,15 @@ test-wait:
 	fi
 
 test-run:
-	@container_id=$$(docker run -d \
-		--network host \
+	@NETWORK_NAME="integration_integration_net"; \
+	echo "Using network: $$NETWORK_NAME"; \
+	container_id=$$(docker run -d \
+		--network $$NETWORK_NAME \
 		-e TESTING=true \
-		-e S3_ENDPOINT=http://localhost:9000 \
+		-e S3_ENDPOINT=http://minio:9000 \
 		-e S3_ACCESS_KEY=minioadmin \
 		-e S3_SECRET_KEY=minioadmin \
-		-e RABBITMQ_URL=amqp://guest:guest@localhost:5672/%2F \
+		-e RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/%2F \
 		-e DATABASE_URL=sqlite:///:memory: \
 		-e NFS_PATH=/tmp \
 		-e PYTHONPATH=/app \
@@ -105,6 +111,7 @@ test-run:
 
 test-cleanup:
 	-docker-compose -f $(INTEGRATION_COMPOSE) down -v 2>/dev/null || true
+	-docker network rm integration_integration_net 2>/dev/null || true
 
 test: test-setup test-wait test-run test-cleanup
 

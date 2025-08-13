@@ -56,3 +56,26 @@ spec:
             name: minio-service
             port:
               number: 9001
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jenkins-webhook-ingress
+  namespace: jenkins
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /fileprocessing-push
+            pathType: Prefix
+            backend:
+              service:
+                name: jenkins-service
+                port:
+                  number: 8080

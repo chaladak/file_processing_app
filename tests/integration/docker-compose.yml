@@ -1,11 +1,20 @@
+version: '3.8'
+
+networks:
+  integration_net:
+    driver: bridge
+
 services:
   minio:
     image: minio/minio:latest
-    network_mode: host
+    container_name: minio
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -14,13 +23,18 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - integration_net
 
   rabbitmq:
     image: rabbitmq:3-management
-    network_mode: host
+    container_name: rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -29,6 +43,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - integration_net
 
 volumes:
   minio_data:
