@@ -3,13 +3,7 @@ kind: Ingress
 metadata:
   name: fileprocessing-ingress
   namespace: fileprocessing
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
-  tls:
-  - hosts:
-    - fileprocessing.example.com
-    secretName: fileprocessing-tls
   rules:
   - host: fileprocessing.example.com
     http:
