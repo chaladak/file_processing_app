@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: notifier
-  namespace: ${PROJECT_NAME}
+  namespace: fileprocessing
   labels:
     app: notifier
 spec:
@@ -17,42 +17,42 @@ spec:
     spec:
       containers:
       - name: notifier
-        image: ${DOCKER_REGISTRY}/${PROJECT_NAME}-notifier:${TAG}
+        image: achodak/fileprocessing-notifier:${TAG}
         env:
         - name: POSTGRES_HOST
           valueFrom:
             configMapKeyRef:
-              name: ${PROJECT_NAME}-config
+              name: fileprocessing-config
               key: postgres-host
         - name: POSTGRES_DB
           valueFrom:
             configMapKeyRef:
-              name: ${PROJECT_NAME}-config
+              name: fileprocessing-config
               key: postgres-db
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: postgres-user
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: postgres-password
         - name: RABBITMQ_HOST
           valueFrom:
             configMapKeyRef:
-              name: ${PROJECT_NAME}-config
+              name: fileprocessing-config
               key: rabbitmq-host
         - name: RABBITMQ_USER
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: rabbitmq-user
         - name: RABBITMQ_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: rabbitmq-password
         - name: DATABASE_URL
           value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/$(POSTGRES_DB)"

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: processor
-  namespace: ${PROJECT_NAME}
+  namespace: fileprocessing
   labels:
     app: processor
 spec:
@@ -17,62 +17,62 @@ spec:
     spec:
       containers:
       - name: processor
-        image: ${DOCKER_REGISTRY}/${PROJECT_NAME}-processor:${TAG}
+        image: achodak/fileprocessing-processor:${TAG}
         env:
         - name: POSTGRES_HOST
           valueFrom:
             configMapKeyRef:
-              name: ${PROJECT_NAME}-config
+              name: fileprocessing-config
               key: postgres-host
         - name: POSTGRES_DB
           valueFrom:
             configMapKeyRef:
-              name: ${PROJECT_NAME}-config
+              name: fileprocessing-config
               key: postgres-db
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: postgres-user
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: postgres-password
         - name: RABBITMQ_HOST
           valueFrom:
             configMapKeyRef:
-              name: ${PROJECT_NAME}-config
+              name: fileprocessing-config
               key: rabbitmq-host
         - name: RABBITMQ_USER
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: rabbitmq-user
         - name: RABBITMQ_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: rabbitmq-password
         - name: MINIO_HOST
           valueFrom:
             configMapKeyRef:
-              name: ${PROJECT_NAME}-config
+              name: fileprocessing-config
               key: minio-host
         - name: MINIO_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: minio-access-key
         - name: MINIO_SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: ${PROJECT_NAME}-secrets
+              name: fileprocessing-secrets
               key: minio-secret-key
         - name: NOTIFICATION_SERVICE_URL
           valueFrom:
             configMapKeyRef:
-              name: ${PROJECT_NAME}-config
+              name: fileprocessing-config
               key: notification-service-url
         - name: NFS_PATH
           value: "/mnt/nfs_clientshare"

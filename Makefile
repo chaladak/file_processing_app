@@ -1,6 +1,3 @@
-# Variables
-DOCKER_REGISTRY ?= achodak
-PROJECT_NAME ?= fileprocessing
 DOCKER_HUB ?= docker.io
 
 # Service paths
@@ -24,9 +21,9 @@ docker-login:
 	@echo "$(DOCKER_PASSWORD)" | docker login $(DOCKER_HUB) -u "$(DOCKER_USERNAME)" --password-stdin
 
 build:
-	docker build -t $(DOCKER_REGISTRY)/$(PROJECT_NAME)-api:$(TAG) ./$(API_SERVICE)
-	docker build -t $(DOCKER_REGISTRY)/$(PROJECT_NAME)-processor:$(TAG) ./$(PROCESSOR_SERVICE)
-	docker build -t $(DOCKER_REGISTRY)/$(PROJECT_NAME)-notifier:$(TAG) ./$(NOTIFIER_SERVICE)
+	docker build -t achodak/fileprocessing-api:$(TAG) ./$(API_SERVICE)
+	docker build -t achodak/fileprocessing-processor:$(TAG) ./$(PROCESSOR_SERVICE)
+	docker build -t achodak/fileprocessing-notifier:$(TAG) ./$(NOTIFIER_SERVICE)
 
 test-setup:
 	-docker-compose -f $(INTEGRATION_COMPOSE) down -v --remove-orphans 2>/dev/null || true
@@ -120,31 +117,29 @@ test-cleanup:
 test: test-setup test-wait test-run test-cleanup
 
 push: docker-login
-	docker push $(DOCKER_REGISTRY)/$(PROJECT_NAME)-api:$(TAG)
-	docker push $(DOCKER_REGISTRY)/$(PROJECT_NAME)-processor:$(TAG)
-	docker push $(DOCKER_REGISTRY)/$(PROJECT_NAME)-notifier:$(TAG)
+	docker push achodak/fileprocessing-api:$(TAG)
+	docker push achodak/fileprocessing-processor:$(TAG)
+	docker push achodak/fileprocessing-notifier:$(TAG)
 
 k8s-apply-infrastructure:
 	@for file in namespace configmap secret nfs-pv postgres rabbitmq minio; do \
-		cat k8s/$$file.yaml | sed 's|\$${PROJECT_NAME}|$(PROJECT_NAME)|g' | kubectl apply -f -; \
+		cat k8s/$$file.yaml | kubectl apply -f -; \
 	done
 
 k8s-wait-infrastructure:
-	kubectl -n $(PROJECT_NAME) wait --for=condition=ready pod -l app=postgres --timeout=120s
-	kubectl -n $(PROJECT_NAME) wait --for=condition=ready pod -l app=rabbitmq --timeout=120s
-	kubectl -n $(PROJECT_NAME) wait --for=condition=ready pod -l app=minio --timeout=120s
+	kubectl -n fileprocessing wait --for=condition=ready pod -l app=postgres --timeout=120s
+	kubectl -n fileprocessing wait --for=condition=ready pod -l app=rabbitmq --timeout=120s
+	kubectl -n fileprocessing wait --for=condition=ready pod -l app=minio --timeout=120s
 
 k8s-apply-services:
 	@for service in api processor notifier; do \
 		cat k8s/$$service.yaml | \
-			sed 's|\$${DOCKER_REGISTRY}|$(DOCKER_REGISTRY)|g' | \
-			sed 's|\$${PROJECT_NAME}|$(PROJECT_NAME)|g' | \
 			sed 's|\$${TAG}|$(TAG)|g' | \
 			kubectl apply -f -; \
 	done
 
 k8s-apply-ingress:
-	cat k8s/ingress.yaml | sed 's|\$${PROJECT_NAME}|$(PROJECT_NAME)|g' | kubectl apply -f -
+	cat k8s/ingress.yaml | kubectl apply -f -
 
 deploy: install-deps k8s-apply-infrastructure k8s-wait-infrastructure k8s-apply-services k8s-apply-ingress
 
