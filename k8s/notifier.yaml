@@ -70,6 +70,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: notifier-service
+  namespace: fileprocessing
 spec:
   selector:
     app: notifier
