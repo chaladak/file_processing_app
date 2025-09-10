@@ -123,7 +123,7 @@ push: docker-login
 
 k8s-apply-infrastructure:
 	@for file in namespace configmap secret nfs-pv postgres rabbitmq minio; do \
-		cat k8s/$$file.yaml | kubectl apply -f -; \
+		cat manifests/$$file.yaml | kubectl apply -f -; \
 	done
 
 k8s-wait-infrastructure:
@@ -133,13 +133,13 @@ k8s-wait-infrastructure:
 
 k8s-apply-services:
 	@for service in api processor notifier; do \
-		cat k8s/$$service.yaml | \
+		cat manifests/$$service.yaml | \
 			sed 's|\$${TAG}|$(TAG)|g' | \
 			kubectl apply -f -; \
 	done
 
 k8s-apply-ingress:
-	cat k8s/ingress.yaml | kubectl apply -f -
+	cat manifests/ingress.yaml | kubectl apply -f -
 
 deploy: install-deps k8s-apply-infrastructure k8s-wait-infrastructure k8s-apply-services k8s-apply-ingress
 
