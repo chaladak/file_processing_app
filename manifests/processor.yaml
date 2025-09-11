@@ -1,15 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: processor
+  name: processor-v1
   namespace: fileprocessing
   labels:
     app: processor
+    managed-by: jenkins
+    version: v1
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: processor
+      version: v1
   template:
     metadata:
       labels:
