@@ -17,6 +17,7 @@ spec:
     metadata:
       labels:
         app: api
+        version: v1
     spec:
       containers:
       - name: api

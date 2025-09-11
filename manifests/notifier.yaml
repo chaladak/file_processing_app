@@ -17,6 +17,7 @@ spec:
     metadata:
       labels:
         app: notifier
+        version: v1
     spec:
       imagePullSecrets:
       - name: dockerhub-secret
